@@ -50,7 +50,7 @@ class Agent:
                 "prompt": query,
                 "system": system_prompt,
                 "stream": False,
-                "temperature": 0,
+                "temperature": 0.5,
             }
 
         if self.server == 'runpod':
@@ -67,7 +67,7 @@ class Agent:
                     }
                 ],
                 "stream": False,
-                "temperature": 0,
+                "temperature": 0.5,
                 "stop": "<|eot_id|>"
             }
 
@@ -196,14 +196,14 @@ class Agent:
         meets_requirements = False
         plan = None
         outputs = None
-        response = None
+        integration_agent_response = None
         reason = None
         previous_response = None
         iterations = 0
     
         while not meets_requirements and iterations < self.iterations:
             iterations += 1  
-            plan = self.run_planning_agent(query, plan=plan, outputs=outputs, feedback=response)
+            plan = self.run_planning_agent(query, plan=plan, outputs=outputs, feedback=integration_agent_response)
             outputs = self.tool.use_tool(plan=plan, query=query)
             integration_agent_response = self.run_integration_agent(query, plan, outputs, reason=reason, previous_response=previous_response)
             previous_response = integration_agent_response
@@ -215,18 +215,6 @@ class Agent:
             else: 
                 meets_requirements = False
                 reason = response_dict.get('reason', '')
-            # citations = response_dict.get('citations', '')
-
-            # if citations == 'No citations':
-            #     integration_agent_response = self.run_integration_agent(query, plan=plan, outputs=outputs, reason=reason, previous_response=previous_response)
-            #     previous_response = integration_agent_response
-            #     response_dict = self.check_response(integration_agent_response, query)
-            #     meets_requirements = response_dict.get('pass', '')
-            #     if meets_requirements == 'True':
-            #         meets_requirements = True
-            #     else: 
-            #         meets_requirements = False
-            #     reason = response_dict.get('reason', '')
 
         print(colored(f"Final Response: {integration_agent_response}", 'cyan'))
 
@@ -256,7 +244,7 @@ if __name__ == '__main__':
                   planning_agent_prompt=planning_agent_prompt, 
                   integration_agent_prompt=integration_agent_prompt,
                   verbose=True,
-                  iterations=2,
+                  iterations=3,
                   model_endpoint=model_endpoint,
                   server=server
                   )
