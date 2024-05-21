@@ -4,6 +4,8 @@ import json
 import yaml
 from termcolor import colored
 import os
+import chardet
+
 
 def load_config(file_path):
     with open(file_path, 'r') as file:
@@ -12,33 +14,15 @@ def load_config(file_path):
             os.environ[key] = value
 
 class WebSearcher:
-
     """
-    A class that encapsulates methods for generating search queries, fetching search results,
-    determining the best search pages, and scraping web content using the OpenAI API and other web services.
-
-    This class is designed to interact with the OpenAI API to leverage its capabilities for generating
-    search queries based on a provided plan and query. It integrates with the serper.dev API to fetch
-    search results and then uses a combination of these results and additional OpenAI API calls to determine
-    the most relevant web pages. Finally, it scrapes the content of the determined best page.
-
-    Methods:
-        __init__(self): Initializes the WebSearcher instance, loads API keys from a configuration file,
-                       and sets up headers for HTTP requests.
-        generate_searches(self, plan: str, query: str) -> str: Generates search queries based on provided plan and query.
-        get_search_page(self, search_results: str, plan: str, query: str) -> str: Determines the best search page URLs
-                                                                               based on the results and context.
-        format_results(self, organic_results: list) -> str: Formats the search results to a more readable format.
-        fetch_search_results(self, search_queries: str) -> str: Fetches detailed search results from serper.dev API.
-        scrape_website_content(self, website_url: str) -> dict: Scrapes and returns the content of the given website URL.
-        use_tool(self, verbose: bool = False, plan: str = None, query: str = None) -> dict: Orchestrates the use of other methods
-                                                                                          to perform a complete search-and-retrieve
-                                                                                          operation based on the specified plan and query.
-
-    Usage Example:
-        searcher = WebSearcher()
-        results_dict = searcher.use_tool(verbose=True, plan="Research new AI techniques", query="Latest trends in AI")
-        results_dict will contain the URL as a key and the scraped content from that URL as the value.
+    Input:
+    Search Engine Query: The primary input to the tool is a search engine query intended for Google Search. This query is generated based on a specified plan and user query.
+    Output:
+    Dictionary of Website Content: The output of the tool is a dictionary where:
+    The key is the URL of the website that is deemed most relevant based on the search results.
+    The value is the content scraped from that website, presented as plain text.
+    The source is useful for citation purposes in the final response to the user query.
+    The content is used to generate a comprehensive response to the user query.
     """
     def __init__(self, model, verbose=False):
         load_config('config.yaml')
@@ -51,15 +35,16 @@ class WebSearcher:
         self.model = model
         self.verbose = verbose
 
-    def generate_searches(select, plan, query):
+    def generate_searches(self, plan, query):
         url = "http://localhost:11434/api/generate"
         headers = {"Content-Type": "application/json"}
 
         payload = {
-            "model": "llama3",
+            "model": self.model,
             "prompt": f"Query: {query}\n\nPlan: {plan}",
             "format": "json",
-            "system": """Return a json object that gives the input to a google search engine that could be used to find an answer to the Query based on the Plan. 
+            "system": """Return a json object that gives the input to a google search engine that could be used to find an answer to the Query based on the Plan.
+            You may be given a multiple questions to answer, but you should only generate the search engine query for the single most important question according to the Plan and query. 
             The json object should have the following format:
             {
                 "response": "search engine query"
@@ -86,7 +71,7 @@ class WebSearcher:
         headers = {"Content-Type": "application/json"}
 
         payload = {
-            "model": "llama3",
+            "model": self.model,
             "prompt": f"Query: {query}\n\nPlan: {plan} \n\nSearch Results: {search_results}",
             "format": "json",
             "system": """Return a json object that gives the URL of the best website source to answer the Query,
@@ -106,7 +91,7 @@ class WebSearcher:
             response_dict = response.json()
             response_json = json.loads(response_dict['response'])
             search_query = response_json.get('response', '')
-            print(f"Search URL: {search_query}")
+            print(f"Scraping URL: {search_query}")
             return search_query
         
         except Exception as e:
@@ -167,25 +152,28 @@ class WebSearcher:
             # Making a GET request to the website
             response = requests.get(website_url, headers=headers, timeout=15)
             response.raise_for_status()  # This will raise an exception for HTTP errors
-
+            
+            # Detecting encoding using chardet
+            detected_encoding = chardet.detect(response.content)
+            response.encoding = detected_encoding['encoding']
+            
             # Parsing the page content using BeautifulSoup
-            soup = BeautifulSoup(response.content, 'html.parser')
+            soup = BeautifulSoup(response.text, 'html.parser')
             text = soup.get_text(separator='\n')
             # Cleaning up the text: removing excess whitespace
             clean_text = '\n'.join([line.strip() for line in text.splitlines() if line.strip()])
 
-            return {website_url: clean_text}
+            return {"source": website_url,
+                    "content": clean_text}
 
         except requests.exceptions.RequestException as e:
             print(f"Error retrieving content from {website_url}: {e}")
             return {website_url: f"Failed to retrieve content due to an error: {e}"}
+
     
     def use_tool(self, plan=None, query=None):
 
         search = WebSearcher(self.model)
-        # plan = "Find the best way to cook a turkey"
-        # query = "How long should I cook a turkey for?"
-
         search_queries = search.generate_searches(plan, query)
         search_results = search.fetch_search_results(search_queries)
         best_page = search.get_search_page(search_results, plan, query)
@@ -193,6 +181,7 @@ class WebSearcher:
 
         if self.verbose:
             print(colored(f"SEARCH RESULTS {search_results}", 'yellow'))
+            print(colored(f"BEST PAGE {best_page}", 'yellow'))
             print(colored(f"RESULTS DICT {results_dict}", 'yellow'))
 
         return results_dict

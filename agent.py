@@ -2,6 +2,7 @@ import os
 import yaml
 import json
 import requests
+from datetime import datetime, timezone
 from termcolor import colored
 from prompts import planning_agent_prompt, integration_agent_prompt
 from search import WebSearcher
@@ -13,8 +14,13 @@ def load_config(file_path):
         for key, value in config.items():
             os.environ[key] = value
 
+def get_current_utc_datetime():
+    now_utc = datetime.now(timezone.utc)
+    current_time_utc = now_utc.strftime("%Y-%m-%d %H:%M:%S %Z")
+    return current_time_utc
+
 class Agent:
-    def __init__(self, model, tool, temperature=0, max_tokens=1000, planning_agent_prompt=None, integration_agent_prompt=None, verbose=False):
+    def __init__(self, model, tool, temperature=0, max_tokens=1000, planning_agent_prompt=None, integration_agent_prompt=None, verbose=False, iterations=5):
         self.url = 'http://localhost:11434/api/generate'
         self.headers = {"Content-Type": "application/json"}
         self.temperature = temperature
@@ -25,33 +31,32 @@ class Agent:
         self.integration_agent_prompt = integration_agent_prompt
         self.model = model
         self.verbose = verbose
+        self.iterations = iterations
 
     def run_planning_agent(self, query, plan=None, outputs=None, feedback=None):
-        url = self.url
-        headers = self.headers
 
         system_prompt = self.planning_agent_prompt.format(
                 outputs=outputs,
                 plan=plan,
                 feedback=feedback,
-                tool_specs=self.tool_specs
+                tool_specs=self.tool_specs,
+                datetime=get_current_utc_datetime()
             )
 
         payload = {
-            "model": self.model,
+            "model": "llama3:instruct",
             "prompt": query,
-            # "format": "json",
             "system": system_prompt,
             "stream": False,
-            "temperature": 0
+            "temperature": 0.5
         }
 
         try:
-            response = requests.post(self.url, headers=headers, data=json.dumps(payload))
+            response = requests.post(self.url, headers=self.headers, data=json.dumps(payload))
             response_dict = response.json()
 
             normal_response = response_dict['response']
-            print(f"Generated Response: {normal_response}")
+            print(colored(f"Planning Agent: {normal_response}", 'blue'))
             return normal_response
         
         except Exception as e:
@@ -59,8 +64,6 @@ class Agent:
             return "Error generating plan {e}"
         
     def run_integration_agent(self, query, plan=None, outputs=None, feedback=None):
-        url = self.url
-        headers = self.headers
 
         system_prompt = self.integration_agent_prompt.format(
                 outputs=outputs,
@@ -70,18 +73,17 @@ class Agent:
         payload = {
             "model": self.model,
             "prompt": query,
-            # "format": "json",
             "system": system_prompt,
             "stream": False,
             "temperature": 0.5
         }
 
         try:
-            response = requests.post(self.url, headers=headers, data=json.dumps(payload))
+            response = requests.post(self.url, headers=self.headers, data=json.dumps(payload))
             response_dict = response.json()
 
             normal_response = response_dict['response']
-            print(f"Generated Response: {normal_response}")
+            print(colored(f"Integration Agent: {normal_response}", 'green'))
             return normal_response
         
         except Exception as e:
@@ -89,11 +91,8 @@ class Agent:
             return "Error generating plan {e}"
     
     def check_response(self, response, query):
-        url = "http://localhost:11434/api/generate"
-        # headers = {"Content-Type": "application/json"}
-
         payload = {
-            "model": "llama3",
+            "model": self.model,
             "prompt": f"query: {query}\n\nresponse: {response}",
             "format": "json",
             "system": """Check if the response meets all of the requirements of the query based on the following:
@@ -108,11 +107,11 @@ class Agent:
                         }
                         """,
             "stream": False,
-            "temperature": 0.5
+            "temperature": 0
         }
 
         try: 
-            response = requests.post(url, headers=self.headers, data=json.dumps(payload))
+            response = requests.post(self.url, headers=self.headers, data=json.dumps(payload))
             response_dict = response.json()
             response_json = json.loads(response_dict['response'])
             search_query = response_json.get('response', '')
@@ -127,7 +126,7 @@ class Agent:
             print("Error in assessing response quality:", response_dict)
             return "Error in assessing response quality"
          
-    def execute(self, iterations=5):
+    def execute(self):
         query = input("Enter your query: ")
         tool =  self.tool(model=self.model, verbose=self.verbose)
         meets_requirements = False
@@ -136,7 +135,7 @@ class Agent:
         response = None
         iterations = 0
 
-        while not meets_requirements and iterations < 5:
+        while not meets_requirements and iterations < self.iterations:
             iterations += 1  
             plan = self.run_planning_agent(query, plan=plan, outputs=outputs, feedback=response)
             outputs = tool.use_tool(plan=plan, query=query)
@@ -147,11 +146,13 @@ class Agent:
 
         
 if __name__ == '__main__':
-    agent = Agent(model="llama3",
+    model = "codegemma:instruct"
+    agent = Agent(model=model,
                   tool=WebSearcher, 
                   planning_agent_prompt=planning_agent_prompt, 
                   integration_agent_prompt=integration_agent_prompt,
-                  verbose=True
+                  verbose=True,
+                  iterations=4
                   )
     agent.execute()
 
