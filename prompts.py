@@ -40,7 +40,8 @@ integration_agent_prompt = (
     "There is a quality assurance process to check your response meets the requirements.\n\n"
     "Here are the results of the last quality assurance check: `{reason}`\n\n"
     "Take these into account when generating your response.\n\n"
-    "Here is your previous response: `{previous_response}`\n\n"
+    "Here are all your previous responses: `{previous_response}`\n\n"
+    "Here is today's date and time (Timezone: UTC): `{datetime}`\n\n"
 )
 
 check_response_prompt = """Check if the response meets all of the requirements of the query based on the following:

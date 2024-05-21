@@ -19,6 +19,48 @@ def get_current_utc_datetime():
     current_time_utc = now_utc.strftime("%Y-%m-%d %H:%M:%S %Z")
     return current_time_utc
 
+def save_feedback(response, json_filename="memory.json"):
+    # Create a dictionary with the response
+    feedback_entry = {"feedback": response}
+    
+    # Load existing data from the JSON file if it exists
+    if os.path.exists(json_filename):
+        with open(json_filename, "r") as json_file:
+            data = json.load(json_file)
+    else:
+        data = []
+    
+    # Append the new feedback entry to the data
+    data.append(feedback_entry)
+    
+    # Write the updated data back to the JSON file
+    with open(json_filename, "w") as json_file:
+        json.dump(data, json_file, indent=4)
+
+def read_feedback(json_filename="memory.json"):
+    if os.path.exists(json_filename):
+        with open(json_filename, "r") as json_file:
+            data = json.load(json_file)
+            # Convert the JSON data to a pretty-printed string
+            json_string = json.dumps(data, indent=4)
+            return json_string
+    else:
+        return ""
+    
+def clear_json_file(json_filename="memory.json"):
+    # Open the file in write mode to clear its contents
+    with open(json_filename, "w") as json_file:
+        json.dump([], json_file)
+
+def initialize_json_file(json_filename="memory.json"):
+    if not os.path.exists(json_filename) or os.path.getsize(json_filename) == 0:
+        with open(json_filename, "w") as json_file:
+            json.dump([], json_file)
+
+# Call this function at the beginning of your script
+initialize_json_file()
+
+
 class Agent:
     def __init__(self, model, model_tool, model_qa, tool, temperature=0, max_tokens=1000, planning_agent_prompt=None, integration_agent_prompt=None, check_response_prompt=None, verbose=False, iterations=5, model_endpoint=None, server=None):
         self.server = server
@@ -95,7 +137,8 @@ class Agent:
                 plan=plan,
                 reason=reason,
                 sources=outputs.get('sources', ''),
-                previous_response=previous_response
+                previous_response=previous_response,
+                datetime=get_current_utc_datetime()
             )
         
         if self.server == 'ollama':
@@ -136,6 +179,8 @@ class Agent:
                 response = response_dict['choices'][0]['message']['content']
 
             print(colored(f"Integration Agent: {response}", 'green'))
+
+
 
             return response
         
@@ -198,15 +243,15 @@ class Agent:
         outputs = None
         integration_agent_response = None
         reason = None
-        previous_response = None
         iterations = 0
     
         while not meets_requirements and iterations < self.iterations:
-            iterations += 1  
-            plan = self.run_planning_agent(query, plan=plan, outputs=outputs, feedback=integration_agent_response)
+            iterations += 1
+            feedback = read_feedback(json_filename="memory.json")
+            plan = self.run_planning_agent(query, plan=plan, outputs=outputs, feedback=feedback)
             outputs = self.tool.use_tool(plan=plan, query=query)
-            integration_agent_response = self.run_integration_agent(query, plan, outputs, reason=reason, previous_response=previous_response)
-            previous_response = integration_agent_response
+            integration_agent_response = self.run_integration_agent(query, plan, outputs, reason=reason, previous_response=feedback)
+            save_feedback(integration_agent_response, json_filename="memory.json")
             response_dict = self.check_response(integration_agent_response, query)
             meets_requirements = response_dict.get('pass', '')
             print(f"Response meets requirements: {meets_requirements}")
@@ -216,6 +261,7 @@ class Agent:
                 meets_requirements = False
                 reason = response_dict.get('reason', '')
 
+        clear_json_file()
         print(colored(f"Final Response: {integration_agent_response}", 'cyan'))
 
         
