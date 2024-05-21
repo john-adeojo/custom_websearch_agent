@@ -125,7 +125,6 @@ class WebSearcher:
         try: 
             response = requests.post(self.model_endpoint, headers=self.headers, data=json.dumps(payload))
             response_dict = response.json()
-            print(f"Response Dict: {response_dict}")
 
             if self.server == 'ollama':
                 response_json = json.loads(response_dict['response'])

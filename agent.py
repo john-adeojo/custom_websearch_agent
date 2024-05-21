@@ -268,20 +268,20 @@ class Agent:
 if __name__ == '__main__':
 
     # Params for Ollama
-    # model = "llama3:instruct"
-    # model_tool = "llama3:instruct"
-    # model_qa = "llama3:instruct"
-    # model_endpoint = 'http://localhost:11434/api/generate'
-    # server = 'ollama'
+    model = "llama3:instruct"
+    model_tool = "llama3:instruct"
+    model_qa = "llama3:instruct"
+    model_endpoint = 'http://localhost:11434/api/generate'
+    server = 'ollama'
 
     # Params for RunPod
-    model = "meta-llama/Meta-Llama-3-70B-Instruct"
-    model_tool = "meta-llama/Meta-Llama-3-70B-Instruct"
-    model_qa = "meta-llama/Meta-Llama-3-70B-Instruct"
-    runpod_endpoint = 'https://2pglgilg5fgfa9-8000.proxy.runpod.net/'
-    completions_endpoint = 'v1/chat/completions'
-    model_endpoint = runpod_endpoint + completions_endpoint
-    server = 'runpod'
+    # model = "meta-llama/Meta-Llama-3-70B-Instruct"
+    # model_tool = "meta-llama/Meta-Llama-3-70B-Instruct"
+    # model_qa = "meta-llama/Meta-Llama-3-70B-Instruct"
+    # runpod_endpoint = 'https://2pglgilg5fgfa9-8000.proxy.runpod.net/'
+    # completions_endpoint = 'v1/chat/completions'
+    # model_endpoint = runpod_endpoint + completions_endpoint
+    # server = 'runpod'
 
     agent = Agent(model=model,
                   model_tool=model_tool,
