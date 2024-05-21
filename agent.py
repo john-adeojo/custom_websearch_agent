@@ -20,7 +20,7 @@ def get_current_utc_datetime():
     return current_time_utc
 
 class Agent:
-    def __init__(self, model, tool, temperature=0, max_tokens=1000, planning_agent_prompt=None, integration_agent_prompt=None, verbose=False, iterations=5):
+    def __init__(self, model, model_tool, tool, temperature=0, max_tokens=1000, planning_agent_prompt=None, integration_agent_prompt=None, verbose=False, iterations=5):
         self.url = 'http://localhost:11434/api/generate'
         self.headers = {"Content-Type": "application/json"}
         self.temperature = temperature
@@ -30,6 +30,7 @@ class Agent:
         self.planning_agent_prompt = planning_agent_prompt
         self.integration_agent_prompt = integration_agent_prompt
         self.model = model
+        self.model_tool = model_tool
         self.verbose = verbose
         self.iterations = iterations
 
@@ -44,11 +45,11 @@ class Agent:
             )
 
         payload = {
-            "model": "llama3:instruct",
+            "model": self.model,
             "prompt": query,
             "system": system_prompt,
             "stream": False,
-            "temperature": 0.5
+            "temperature": 0
         }
 
         try:
@@ -75,7 +76,7 @@ class Agent:
             "prompt": query,
             "system": system_prompt,
             "stream": False,
-            "temperature": 0.5
+            "temperature": 0
         }
 
         try:
@@ -128,7 +129,7 @@ class Agent:
          
     def execute(self):
         query = input("Enter your query: ")
-        tool =  self.tool(model=self.model, verbose=self.verbose)
+        tool =  self.tool(model=self.model_tool, verbose=self.verbose)
         meets_requirements = False
         plan = None
         outputs = None
@@ -146,13 +147,15 @@ class Agent:
 
         
 if __name__ == '__main__':
-    model = "codegemma:instruct"
+    model = "llama3:instruct"
+    model_tool = "codegemma:instruct"
     agent = Agent(model=model,
+                  model_tool=model_tool,
                   tool=WebSearcher, 
                   planning_agent_prompt=planning_agent_prompt, 
                   integration_agent_prompt=integration_agent_prompt,
                   verbose=True,
-                  iterations=4
+                  iterations=3
                   )
     agent.execute()
 
