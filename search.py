@@ -5,6 +5,8 @@ import yaml
 from termcolor import colored
 import os
 import chardet
+import string
+from prompts import generate_searches_prompt, get_search_page_prompt
 
 
 def load_config(file_path):
@@ -24,74 +26,118 @@ class WebSearcher:
     The source is useful for citation purposes in the final response to the user query.
     The content is used to generate a comprehensive response to the user query.
     """
-    def __init__(self, model, verbose=False):
+    def __init__(self, model, verbose=False, model_endpoint=None, server=None):
         load_config('config.yaml')
         self.api_key = os.getenv("OPENAI_API_KEY")
-        self.url = 'https://api.openai.com/v1/chat/completions'
-        self.headers = {
-            'Content-Type': 'application/json',
-            'Authorization': f'Bearer {self.api_key}'
-        }
+        self.server = server
+        self.model_endpoint = model_endpoint
+        self.headers = {"Content-Type": "application/json"}
         self.model = model
         self.verbose = verbose
 
-    def generate_searches(self, plan, query):
-        url = "http://localhost:11434/api/generate"
-        headers = {"Content-Type": "application/json"}
+        self.failed_sites = []
 
-        payload = {
-            "model": self.model,
-            "prompt": f"Query: {query}\n\nPlan: {plan}",
-            "format": "json",
-            "system": """Return a json object that gives the input to a google search engine that could be used to find an answer to the Query based on the Plan.
-            You may be given a multiple questions to answer, but you should only generate the search engine query for the single most important question according to the Plan and query. 
-            The json object should have the following format:
-            {
-                "response": "search engine query"
+    def generate_searches(self, plan, query):
+
+        if self.server == 'ollama':
+
+            payload = {
+                "model": self.model,
+                "prompt": f"Query: {query}\n\nPlan: {plan}",
+                "format": "json",
+                "system": generate_searches_prompt,
+                "stream": False,
+                "temperature": 0,
             }
-            """,
-            "stream": False,
-            "temperature": 0
-        }
+        
+        if self.server == 'runpod':
+            payload = {
+                "model": self.model,
+                "response_format": {"type": "json_object"},
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": generate_searches_prompt
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Query: {query}\n\nPlan: {plan}"
+                    }
+                ],
+                "temperature": 0,
+                "stop": "<|eot_id|>"
+
+            }
+
 
         try: 
-            response = requests.post(url, headers=headers, data=json.dumps(payload))
+            response = requests.post(self.model_endpoint, headers=self.headers, data=json.dumps(payload))
             response_dict = response.json()
-            response_json = json.loads(response_dict['response'])
-            search_query = response_json.get('response', '')
-            print(f"Search Engine Query: {search_query}")
+
+            if self.server == 'ollama':
+                response_json = json.loads(response_dict['response'])
+                search_query = response_json.get('response', '')
+
+            if self.server == 'runpod':
+                response_content = response_dict['choices'][0]['message']['content']
+                response_json = json.loads(response_content)
+                search_query = response_json.get('response', '')
+            
+            # print(f"Search dict DEBUG: {response_dict}")
+            print(f"Search Query: {search_query}")
+
             return search_query
         
         except Exception as e:
             print("Error in response:", response_dict)
             return "Error generating search query"
         
-    def get_search_page(self, plan, query, search_results):
-        url = "http://localhost:11434/api/generate"
-        headers = {"Content-Type": "application/json"}
+    def get_search_page(self, plan, query, search_results, failed_sites=[]):
 
-        payload = {
-            "model": self.model,
-            "prompt": f"Query: {query}\n\nPlan: {plan} \n\nSearch Results: {search_results}",
-            "format": "json",
-            "system": """Return a json object that gives the URL of the best website source to answer the Query,
-            Plan and Search Results. The URL MUST be selected
-            from the Search Results provided. 
-            The json object should have the following format:
-            {
-                "response": "Best website source URL"
+        if self.server == 'ollama':
+            payload = {
+                "model": self.model,
+                "prompt": f"Query: {query}\n\nPlan: {plan} \n\nSearch Results: {search_results} \n\nFailed Sites: {failed_sites}",
+                "format": "json",
+                "system": get_search_page_prompt,
+                "stream": False,
+                "temperature": 0,
             }
-            """,
-            "stream": False,
-            "temperature": 0
-        }
+        
+        if self.server == 'runpod':
+            payload = {
+                "model": self.model,
+                "response_format": {"type": "json_object"},
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": get_search_page_prompt
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Query: {query}\n\nPlan: {plan}\n\nSearch Results: {search_results}\n\nFailed Sites: {failed_sites}"
+                    }
+                ],
+                "temperature": 0,
+                "stop": "<|eot_id|>"
+            }
 
         try: 
-            response = requests.post(url, headers=headers, data=json.dumps(payload))
+            response = requests.post(self.model_endpoint, headers=self.headers, data=json.dumps(payload))
             response_dict = response.json()
-            response_json = json.loads(response_dict['response'])
-            search_query = response_json.get('response', '')
-            print(f"Scraping URL: {search_query}")
+            print(f"Response Dict: {response_dict}")
+
+            if self.server == 'ollama':
+                response_json = json.loads(response_dict['response'])
+                search_query = response_json.get('response', '')
+
+            if self.server == 'runpod':
+                response_content = response_dict['choices'][0]['message']['content']
+                response_json = json.loads(response_content)
+                search_query = response_json.get('response', '')
+
+            print(f"Search Page URL: {search_query}")
+           
             return search_query
         
         except Exception as e:
@@ -109,7 +155,7 @@ class WebSearcher:
         
         return '\n'.join(result_strings)
     
-    def fetch_search_results(self, search_queries: str):
+    def fetch_search_results(self, search_queries):
 
         search_url = "https://google.serper.dev/search"
         headers = {
@@ -147,6 +193,10 @@ class WebSearcher:
             'Upgrade-Insecure-Requests': '1',
             'Accept-Encoding': 'gzip, deflate, br'
         }
+
+        def is_garbled(text):
+            non_ascii_chars = sum(1 for char in text if char not in string.printable)
+            return non_ascii_chars / len(text) > 0.2
         
         try:
             # Making a GET request to the website
@@ -155,33 +205,59 @@ class WebSearcher:
             
             # Detecting encoding using chardet
             detected_encoding = chardet.detect(response.content)
-            response.encoding = detected_encoding['encoding']
+            response.encoding = detected_encoding['encoding'] if detected_encoding['confidence'] > 0.5 else 'utf-8'
+            
+            # Handling possible issues with encoding detection
+            try:
+                content = response.text
+            except UnicodeDecodeError:
+                content = response.content.decode('utf-8', errors='replace')
             
             # Parsing the page content using BeautifulSoup
-            soup = BeautifulSoup(response.text, 'html.parser')
+            soup = BeautifulSoup(content, 'html.parser')
             text = soup.get_text(separator='\n')
             # Cleaning up the text: removing excess whitespace
             clean_text = '\n'.join([line.strip() for line in text.splitlines() if line.strip()])
+            split_text = clean_text.split()
+            first_5k_words = split_text[:5000]
+            clean_text_5k = ' '.join(first_5k_words)
 
-            return {"source": website_url,
-                    "content": clean_text}
+            if is_garbled(clean_text):
+                print(f"Failed to retrieve content from {website_url} due to garbled text.")
+                failed = {"source": website_url, "content": "Failed to retrieve content due to garbled text"}
+                self.failed_sites.append(failed)
+                return self.failed_sites, False
+
+            return {"source": website_url, "content": clean_text_5k}, True
 
         except requests.exceptions.RequestException as e:
             print(f"Error retrieving content from {website_url}: {e}")
-            return {website_url: f"Failed to retrieve content due to an error: {e}"}
-
-    
+            failed = {"source": website_url, "content": f"Failed to retrieve content due to an error: {e}"}
+            self.failed_sites.append(failed)
+            return self.failed_sites, False
+        
     def use_tool(self, plan=None, query=None):
 
-        search = WebSearcher(self.model)
-        search_queries = search.generate_searches(plan, query)
-        search_results = search.fetch_search_results(search_queries)
-        best_page = search.get_search_page(search_results, plan, query)
-        results_dict = search.scrape_website_content(best_page)
+        search_queries = self.generate_searches(plan, query)
+        search_results = self.fetch_search_results(search_queries)
+        best_page = self.get_search_page(plan, query, search_results)
+        results_dict, response = self.scrape_website_content(best_page)
+
+        attempts = 0
+
+        while not response and attempts < 3:
+            print(f"Failed to retrieve content from {best_page}...Trying a different page")
+            print(f"Failed Sites: {self.failed_sites}")
+            best_page = self.get_search_page(plan, query, search_results, self.failed_sites)
+            results_dict, response = self.scrape_website_content(best_page)
+            attempts += 1
+
 
         if self.verbose:
+            print(f"Search Engine Query: {search_queries}")
             print(colored(f"SEARCH RESULTS {search_results}", 'yellow'))
             print(colored(f"BEST PAGE {best_page}", 'yellow'))
+            print(f"Scraping URL: {best_page}")
             print(colored(f"RESULTS DICT {results_dict}", 'yellow'))
 
         return results_dict
