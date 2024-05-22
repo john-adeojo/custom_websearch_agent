@@ -1,19 +1,38 @@
 
-# Setting Up and Running Custom Agent Script
+# Custom Agent
+
+A custom websearch agent useable with Ollama, OpenAI and vLLM.
+
+### Agent Schema:
+schema/Agent Schema.png
+
 
 ### Prerequisites
+
+#### Environment Setup
 1. **Install Anaconda:**  
    Download Anaconda from [https://www.anaconda.com/](https://www.anaconda.com/).
 
 2. **Create a Virtual Environment:**
    ```bash
-   conda create -n crew_env python=3.10 pip
+   conda create -n agent_env python=3.10 pip
    ```
    
 3. **Activate the Virtual Environment:**
    ```bash
    conda activate agent_env
    ```
+#### Setup Ollama Server
+1. **Download Ollama:**
+   Download [https://ollama.com/download](Ollama)
+
+2. **Download an Ollama Model:**
+   ```bash
+   curl http://localhost:11434/api/pull -d '{
+  "name": "llama3"
+}'
+   ```
+Ollama[https://github.com/ollama/ollama/blob/main/docs/api.md#list-local-models](API documentionation)
 
 ### Clone and Navigate to the Repository
 1. **Clone the Repo:**
