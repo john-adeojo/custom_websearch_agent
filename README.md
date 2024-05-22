@@ -4,7 +4,7 @@
 A custom websearch agent useable with Ollama, OpenAI and vLLM.
 
 ### Agent Schema:
-schema/Agent Schema.png
+![Agent Schema](schema/Agent%20Schema.png)
 
 
 ### Prerequisites
