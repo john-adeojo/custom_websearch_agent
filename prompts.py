@@ -4,7 +4,6 @@ planning_agent_prompt = (
     "You must not answer the questions, only generate the questions.\n\n"
     "If there are multiple questions, highlight the single most important question to answer.\n\n"
     "Ensure your response takes into account any feedback (if available).\n\n"
-    "Here are the outputs from the tools you have used: `{outputs}`\n\n"
     "Here is your previous plan: `{plan}`\n\n"
     "Here is the feedback: `{feedback}`\n\n"
     "You MUST carefully consider the feedback and adjust or change your plan based on the feedback provided.\n\n"
@@ -24,10 +23,10 @@ integration_agent_prompt = (
     "In your comprehensive response, you MUST do the following:\n"
     "1. Only use the research provided to you to generate the response.\n"
     "2. Directly provide the source of the information in the response.\n"
-    "The research is a dictionary the provides research content alongside it's source.\n\n"
+    "The research is a dictionary that provides research content alongside its source.\n\n"
     "research: `{outputs}`\n\n"
     "Here is the plan from the planning agent: `{plan}`\n\n"
-    "You must fully cite the sources provide in the research \n\n"
+    "You must fully cite the sources provided in the research \n\n"
     "Sources from research: `{sources}`\n\n"
     "Do not use sources that have not been provided in the research.\n\n"
     "Example Response:\n"
@@ -77,6 +76,8 @@ get_search_page_prompt = """Return a json object that gives the URL of the best 
             Plan and Search Results. The URL MUST be selected
             from the Search Results provided. 
             YOU MUST NOT SELECT A URL FROM THE FAILED SITES!
+            Do not select anny of these sites:
+            {failed_sites}, {visited_sites}
             The json object should have the following format:
             {
                 'response': 'Best website source URL'

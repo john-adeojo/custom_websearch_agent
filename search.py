@@ -29,8 +29,8 @@ class WebSearcher:
     def __init__(self, model, verbose=False, model_endpoint=None, server=None):
         self.server = server
         self.model_endpoint = model_endpoint
+        load_config('config.yaml')
         if server == 'openai':
-            load_config('config.yaml')
             self.api_key = os.getenv("OPENAI_API_KEY")
             self.headers = {
             'Content-Type': 'application/json',
@@ -85,6 +85,7 @@ class WebSearcher:
 
             if self.server == 'ollama':
                 response_json = json.loads(response_dict['response'])
+                print(f"Response JSON: {response_json}")
                 search_query = response_json.get('response', '')
 
             if self.server == 'runpod' or self.server == 'openai':
@@ -101,12 +102,12 @@ class WebSearcher:
             print("Error in response:", response_dict)
             return "Error generating search query"
         
-    def get_search_page(self, plan, query, search_results, failed_sites=[]):
+    def get_search_page(self, plan, query, search_results, failed_sites=[], visited_sites=[]):
 
         if self.server == 'ollama':
             payload = {
                 "model": self.model,
-                "prompt": f"Query: {query}\n\nPlan: {plan} \n\nSearch Results: {search_results} \n\nFailed Sites: {failed_sites}",
+                "prompt": f"Query: {query}\n\nPlan: {plan} \n\nSearch Results: {search_results} \n\nFailed Sites: {failed_sites}, {visited_sites}",
                 "format": "json",
                 "system": get_search_page_prompt,
                 "stream": False,
@@ -124,7 +125,7 @@ class WebSearcher:
                     },
                     {
                         "role": "user",
-                        "content": f"Query: {query}\n\nPlan: {plan}\n\nSearch Results: {search_results}\n\nFailed Sites: {failed_sites}"
+                        "content": f"Query: {query}\n\nPlan: {plan}\n\nSearch Results: {search_results}\n\nFailed Sites: {failed_sites}, {visited_sites}"
                     }
                 ],
                 "temperature": 0,
@@ -146,8 +147,6 @@ class WebSearcher:
                 response_content = response_dict['choices'][0]['message']['content']
                 response_json = json.loads(response_content)
                 search_query = response_json.get('response', '')
-
-            print(f"Search Page URL: {search_query}")
            
             return search_query
         
@@ -238,6 +237,7 @@ class WebSearcher:
                 failed = {"source": website_url, "content": "Failed to retrieve content due to garbled text"}
                 self.failed_sites.append(failed)
                 return self.failed_sites, False
+            
 
             return {"source": website_url, "content": clean_text_5k}, True
 
@@ -247,11 +247,11 @@ class WebSearcher:
             self.failed_sites.append(failed)
             return self.failed_sites, False
         
-    def use_tool(self, plan=None, query=None):
+    def use_tool(self, plan=None, query=None, visited_sites=[]):
 
         search_queries = self.generate_searches(plan, query)
         search_results = self.fetch_search_results(search_queries)
-        best_page = self.get_search_page(plan, query, search_results)
+        best_page = self.get_search_page(plan, query, search_results, visited_sites=visited_sites)
         results_dict, response = self.scrape_website_content(best_page)
 
         attempts = 0
@@ -259,7 +259,7 @@ class WebSearcher:
         while not response and attempts < 3:
             print(f"Failed to retrieve content from {best_page}...Trying a different page")
             print(f"Failed Sites: {self.failed_sites}")
-            best_page = self.get_search_page(plan, query, search_results, self.failed_sites)
+            best_page = self.get_search_page(plan, query, search_results, failed_sites=self.failed_sites)
             results_dict, response = self.scrape_website_content(best_page)
             attempts += 1
 
@@ -267,7 +267,7 @@ class WebSearcher:
         if self.verbose:
             print(f"Search Engine Query: {search_queries}")
             print(colored(f"SEARCH RESULTS {search_results}", 'yellow'))
-            print(colored(f"BEST PAGE {best_page}", 'yellow'))
+            print(f"BEST PAGE {best_page}")
             print(f"Scraping URL: {best_page}")
             print(colored(f"RESULTS DICT {results_dict}", 'yellow'))
 

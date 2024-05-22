@@ -86,10 +86,9 @@ class Agent:
         self.iterations = iterations
         self.model_qa = model_qa
 
-    def run_planning_agent(self, query, plan=None, outputs=None, feedback=None):
+    def run_planning_agent(self, query, plan=None, feedback=None):
 
         system_prompt = self.planning_agent_prompt.format(
-                outputs=outputs,
                 plan=plan,
                 feedback=feedback,
                 tool_specs=self.tool_specs,
@@ -102,7 +101,7 @@ class Agent:
                 "prompt": query,
                 "system": system_prompt,
                 "stream": False,
-                "temperature": 0.5,
+                "temperature": 0,
             }
 
         if self.server == 'runpod' or self.server == 'openai':
@@ -119,7 +118,7 @@ class Agent:
                     }
                 ],
                 "stream": False,
-                "temperature": 0.5,
+                "temperature": 0,
                 "stop": "<|eot_id|>"
             }
 
@@ -136,14 +135,14 @@ class Agent:
             if self.server == 'runpod' or self.server == 'openai':
                 response = response_dict['choices'][0]['message']['content']
 
-            print(colored(f"Planning Agent: {response}", 'blue'))
+            print(colored(f"Planning Agent: {response}", 'green'))
             return response
         
         except Exception as e:
             print("Error in response:", response_dict)
             return "Error generating plan {e}"
         
-    def run_integration_agent(self, query, plan=None, outputs=None, reason=None, previous_response=None):
+    def run_integration_agent(self, query, plan, outputs, reason, previous_response):
 
         system_prompt = self.integration_agent_prompt.format(
                 outputs=outputs,
@@ -160,7 +159,7 @@ class Agent:
                 "prompt": query,
                 "system": system_prompt,
                 "stream": False,
-                "temperature": 0,
+                "temperature": 0.3,
             }
 
         if self.server == 'runpod' or self.server == 'openai':
@@ -194,7 +193,7 @@ class Agent:
             if self.server == 'runpod' or self.server == 'openai':
                 response = response_dict['choices'][0]['message']['content']
 
-            print(colored(f"Integration Agent: {response}", 'green'))
+            print(colored(f"Integration Agent: {response}", 'cyan'))
 
             return response
         
@@ -247,6 +246,7 @@ class Agent:
                 response_content = response_dict['choices'][0]['message']['content']
                 decision_dict = json.loads(response_content)
             
+            print("Response Quality Assessment:", decision_dict)
             return decision_dict
         
         except Exception as e:
@@ -261,13 +261,17 @@ class Agent:
         integration_agent_response = None
         reason = None
         iterations = 0
+        visited_sites = []
     
         while not meets_requirements and iterations < self.iterations:
             iterations += 1
             feedback = read_feedback(json_filename="memory.json")
-            plan = self.run_planning_agent(query, plan=plan, outputs=outputs, feedback=feedback)
-            outputs = self.tool.use_tool(plan=plan, query=query)
-            integration_agent_response = self.run_integration_agent(query, plan, outputs, reason=reason, previous_response=feedback)
+            plan = self.run_planning_agent(query, plan=plan, feedback=feedback)
+            outputs = self.tool.use_tool(plan=plan, query=query, visited_sites=visited_sites)
+            visited_sites.append(outputs.get('source', ''))
+            print("VISITED_SITES",visited_sites)
+
+            integration_agent_response = self.run_integration_agent(query=query, plan=plan, outputs=outputs, reason=reason, previous_response=feedback)
             save_feedback(integration_agent_response, json_filename="memory.json")
             response_dict = self.check_response(integration_agent_response, query)
             meets_requirements = response_dict.get('pass', '')
@@ -285,11 +289,11 @@ class Agent:
 if __name__ == '__main__':
 
     # Params for Ollama
-    # model = "llama3:instruct"
-    # model_tool = "llama3:instruct"
-    # model_qa = "llama3:instruct"
-    # model_endpoint = 'http://localhost:11434/api/generate'
-    # server = 'ollama'
+    model = "codellama:7b-instruct"
+    model_tool = "codellama:7b-instruct"
+    model_qa = "codellama:7b-instruct"
+    model_endpoint = 'http://localhost:11434/api/generate'
+    server = 'ollama'
 
     ## Params for RunPod
     # model = "meta-llama/Meta-Llama-3-70B-Instruct"
@@ -301,11 +305,11 @@ if __name__ == '__main__':
     # server = 'runpod'
 
     ## Params for OpenAI
-    model = 'gpt-3.5-turbo'
-    model_tool = 'gpt-3.5-turbo'
-    model_qa = 'gpt-3.5-turbo'
-    model_endpoint = 'https://api.openai.com/v1/chat/completions'
-    server = 'openai'
+    # model = 'gpt-4o'
+    # model_tool = 'gpt-4o'
+    # model_qa = 'gpt-4o'
+    # model_endpoint = 'https://api.openai.com/v1/chat/completions'
+    # server = 'openai'
 
     agent = Agent(model=model,
                   model_tool=model_tool,
