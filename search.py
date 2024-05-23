@@ -26,7 +26,7 @@ class WebSearcher:
     The source is useful for citation purposes in the final response to the user query.
     The content is used to generate a comprehensive response to the user query.
     """
-    def __init__(self, model, verbose=False, model_endpoint=None, server=None):
+    def __init__(self, model, verbose=False, model_endpoint=None, server=None, stop=None):
         self.server = server
         self.model_endpoint = model_endpoint
         load_config('config.yaml')
@@ -42,6 +42,7 @@ class WebSearcher:
         self.verbose = verbose
 
         self.failed_sites = []
+        self.stop = stop
 
     def generate_searches(self, plan, query):
 
@@ -71,7 +72,7 @@ class WebSearcher:
                     }
                 ],
                 "temperature": 0,
-                "stop": "<|eot_id|>"
+                "stop": self.stop
 
             }
 
@@ -107,7 +108,7 @@ class WebSearcher:
         if self.server == 'ollama':
             payload = {
                 "model": self.model,
-                "prompt": f"Query: {query}\n\nPlan: {plan} \n\nSearch Results: {search_results} \n\nFailed Sites: {failed_sites}, {visited_sites}",
+                "prompt": f"Query: {query}\n\nPlan: {plan} \n\nSearch Results: {search_results}\n\nFailed Sites: {failed_sites}\n\nVisited Sites: {visited_sites}",
                 "format": "json",
                 "system": get_search_page_prompt,
                 "stream": False,
@@ -125,11 +126,11 @@ class WebSearcher:
                     },
                     {
                         "role": "user",
-                        "content": f"Query: {query}\n\nPlan: {plan}\n\nSearch Results: {search_results}\n\nFailed Sites: {failed_sites}, {visited_sites}"
+                        "content": f"Query: {query}\n\nPlan: {plan}\n\nSearch Results: {search_results} \n\nFailed Sites: {failed_sites}\n\nVisited Sites: {visited_sites}"
                     }
                 ],
                 "temperature": 0,
-                "stop": "<|eot_id|>"
+                "stop": self.stop
             }
 
             if self.server == 'openai':
@@ -205,8 +206,15 @@ class WebSearcher:
         }
 
         def is_garbled(text):
+            # Count non-ASCII characters
             non_ascii_chars = sum(1 for char in text if char not in string.printable)
-            return non_ascii_chars / len(text) > 0.2
+            try:
+                # Calculate the proportion of non-ASCII characters
+                return non_ascii_chars / len(text) > 0.2
+            except ZeroDivisionError:
+                # If the text is empty, it cannot be garbled
+                return False
+
         
         try:
             # Making a GET request to the website

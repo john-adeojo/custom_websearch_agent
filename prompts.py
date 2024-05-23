@@ -1,8 +1,8 @@
 planning_agent_prompt = (
     "You are an AI planning agent working with an integration agent.\n\n"
-    "Your job is to come up with the questions you need to answer the query.\n\n"
-    "You must not answer the questions, only generate the questions.\n\n"
-    "If there are multiple questions, highlight the single most important question to answer.\n\n"
+    "Your job is to come up with the searches you can use in a search engine to answer the query.\n\n"
+    "You must not answer the query, only generate the questions.\n\n"
+    "If there are multiple searches, highlight the single most important search.\n\n"
     "Ensure your response takes into account any feedback (if available).\n\n"
     "Here is your previous plan: `{plan}`\n\n"
     "Here is the feedback: `{feedback}`\n\n"
@@ -76,10 +76,10 @@ get_search_page_prompt = """Return a json object that gives the URL of the best 
             Plan and Search Results. The URL MUST be selected
             from the Search Results provided. 
             YOU MUST NOT SELECT A URL FROM THE FAILED SITES!
+            YOU MUST NOT SELECT A URL FROM THE VISITED SITES!
             Do not select anny of these sites:
-            {failed_sites}, {visited_sites}
             The json object should have the following format:
-            {
+            '{
                 'response': 'Best website source URL'
-            }
+            }'
             """

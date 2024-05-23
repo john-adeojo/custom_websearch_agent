@@ -62,7 +62,7 @@ initialize_json_file()
 
 
 class Agent:
-    def __init__(self, model, model_tool, model_qa, tool, temperature=0, max_tokens=1000, planning_agent_prompt=None, integration_agent_prompt=None, check_response_prompt=None, verbose=False, iterations=5, model_endpoint=None, server=None):
+    def __init__(self, model, model_tool, model_qa, tool, temperature=0, max_tokens=1000, planning_agent_prompt=None, integration_agent_prompt=None, check_response_prompt=None, verbose=False, iterations=5, model_endpoint=None, server=None, stop=None):
         self.server = server
         self.model_endpoint = model_endpoint
 
@@ -82,9 +82,10 @@ class Agent:
         self.planning_agent_prompt = planning_agent_prompt
         self.integration_agent_prompt = integration_agent_prompt
         self.model = model
-        self.tool = tool(model=model_tool, verbose=verbose, model_endpoint=model_endpoint, server=server)
+        self.tool = tool(model=model_tool, verbose=verbose, model_endpoint=model_endpoint, server=server, stop=stop)
         self.iterations = iterations
         self.model_qa = model_qa
+        self.stop = stop
 
     def run_planning_agent(self, query, plan=None, feedback=None):
 
@@ -159,7 +160,7 @@ class Agent:
                 "prompt": query,
                 "system": system_prompt,
                 "stream": False,
-                "temperature": 0.3,
+                "temperature": 0,
             }
 
         if self.server == 'runpod' or self.server == 'openai':
@@ -177,7 +178,7 @@ class Agent:
                 ],
                 "stream": False,
                 "temperature": 0,
-                "stop": "<|eot_id|>"
+                "stop": self.stop
             }
 
             if self.server == 'openai':
@@ -211,7 +212,7 @@ class Agent:
                 "system": check_response_prompt,
                 "stream": False,
                 "temperature": 0,
-                "stop": "<|eot_id|>"
+                "stop": self.stop
             }
 
         if self.server == 'runpod' or self.server == 'openai':
@@ -229,7 +230,7 @@ class Agent:
                     }
                 ],
                 "temperature": 0,
-                "stop": "<|eot_id|>"
+                "stop": self.stop
             }
 
             if self.server == 'openai':
@@ -289,26 +290,29 @@ class Agent:
 if __name__ == '__main__':
 
     # Params for Ollama
-    model = "codellama:7b-instruct"
-    model_tool = "codellama:7b-instruct"
-    model_qa = "codellama:7b-instruct"
+    model = "llama3:instruct"
+    model_tool = "llama3:instruct"
+    model_qa = "llama3:instruct"
     model_endpoint = 'http://localhost:11434/api/generate'
+    stop = None
     server = 'ollama'
 
-    ## Params for RunPod
+    # Params for RunPod
     # model = "meta-llama/Meta-Llama-3-70B-Instruct"
     # model_tool = "meta-llama/Meta-Llama-3-70B-Instruct"
     # model_qa = "meta-llama/Meta-Llama-3-70B-Instruct"
-    # runpod_endpoint = 'https://2pglgilg5fgfa9-8000.proxy.runpod.net/'
+    # runpod_endpoint = 'https://abcxg368zegnki-8000.proxy.runpod.net/'  # Add your RunPod endpoint here
     # completions_endpoint = 'v1/chat/completions'
     # model_endpoint = runpod_endpoint + completions_endpoint
+    # stop = "<|eot_id|>"
     # server = 'runpod'
 
-    ## Params for OpenAI
+    # Params for OpenAI
     # model = 'gpt-4o'
     # model_tool = 'gpt-4o'
     # model_qa = 'gpt-4o'
     # model_endpoint = 'https://api.openai.com/v1/chat/completions'
+    # stop = None
     # server = 'openai'
 
     agent = Agent(model=model,
