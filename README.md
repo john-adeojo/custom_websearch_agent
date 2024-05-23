@@ -62,5 +62,6 @@ Ollama[https://github.com/ollama/ollama/blob/main/docs/api.md#list-local-models]
 
 ### Run Your Query
 ```bash
-python app.py "YOUR QUERY"
+python app.py run
 ```
+Then enter your query.
