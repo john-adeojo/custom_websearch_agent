@@ -151,7 +151,8 @@ class Agent:
                 reason=reason,
                 sources=outputs.get('sources', ''),
                 previous_response=previous_response,
-                datetime=get_current_utc_datetime()
+                datetime=get_current_utc_datetime(),
+                query=query
             )
         
         if self.server == 'ollama':
@@ -263,12 +264,13 @@ class Agent:
         reason = None
         iterations = 0
         visited_sites = []
+        failed_sites = []
     
         while not meets_requirements and iterations < self.iterations:
             iterations += 1
             feedback = read_feedback(json_filename="memory.json")
             plan = self.run_planning_agent(query, plan=plan, feedback=feedback)
-            outputs = self.tool.use_tool(plan=plan, query=query, visited_sites=visited_sites)
+            outputs = self.tool.use_tool(plan=plan, query=query, visited_sites=visited_sites, failed_sites=failed_sites)
             visited_sites.append(outputs.get('source', ''))
             print("VISITED_SITES",visited_sites)
 
@@ -290,22 +292,22 @@ class Agent:
 if __name__ == '__main__':
 
     # Params for Ollama
-    model = "llama3:instruct"
-    model_tool = "llama3:instruct"
-    model_qa = "llama3:instruct"
-    model_endpoint = 'http://localhost:11434/api/generate'
-    stop = None
-    server = 'ollama'
+    # model = "llama3:instruct"
+    # model_tool = "llama3:instruct"
+    # model_qa = "llama3:instruct"
+    # model_endpoint = 'http://localhost:11434/api/generate'
+    # stop = None
+    # server = 'ollama'
 
     # Params for RunPod
-    # model = "meta-llama/Meta-Llama-3-70B-Instruct"
-    # model_tool = "meta-llama/Meta-Llama-3-70B-Instruct"
-    # model_qa = "meta-llama/Meta-Llama-3-70B-Instruct"
-    # runpod_endpoint = 'https://abcxg368zegnki-8000.proxy.runpod.net/'  # Add your RunPod endpoint here
-    # completions_endpoint = 'v1/chat/completions'
-    # model_endpoint = runpod_endpoint + completions_endpoint
-    # stop = "<|eot_id|>"
-    # server = 'runpod'
+    model = "meta-llama/Meta-Llama-3-70B-Instruct"
+    model_tool = "meta-llama/Meta-Llama-3-70B-Instruct"
+    model_qa = "meta-llama/Meta-Llama-3-70B-Instruct"
+    runpod_endpoint = 'https://hu40e1a0ry7vgl-8000.proxy.runpod.net/'  # Add your RunPod endpoint here
+    completions_endpoint = 'v1/chat/completions'
+    model_endpoint = runpod_endpoint + completions_endpoint
+    stop = "<|eot_id|>"
+    server = 'runpod'
 
     # Params for OpenAI
     # model = 'gpt-4o'
@@ -322,7 +324,7 @@ if __name__ == '__main__':
                   planning_agent_prompt=planning_agent_prompt, 
                   integration_agent_prompt=integration_agent_prompt,
                   verbose=True,
-                  iterations=3,
+                  iterations=6,
                   model_endpoint=model_endpoint,
                   server=server
                   )

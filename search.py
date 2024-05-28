@@ -41,7 +41,7 @@ class WebSearcher:
         self.model = model
         self.verbose = verbose
 
-        self.failed_sites = []
+        # self.failed_sites = []
         self.stop = stop
 
     def generate_searches(self, plan, query):
@@ -194,7 +194,7 @@ class WebSearcher:
         except KeyError as key_err:
             return f"Key error in handling response: {key_err}"
         
-    def scrape_website_content(self, website_url):
+    def scrape_website_content(self, website_url, failed_sites=[]):
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
@@ -243,32 +243,33 @@ class WebSearcher:
             if is_garbled(clean_text):
                 print(f"Failed to retrieve content from {website_url} due to garbled text.")
                 failed = {"source": website_url, "content": "Failed to retrieve content due to garbled text"}
-                self.failed_sites.append(failed)
-                return self.failed_sites, False
+                failed_sites.append(website_url)
+                return failed, failed_sites, False
             
 
-            return {"source": website_url, "content": clean_text_5k}, True
+            return {"source": website_url, "content": clean_text_5k}, "N/A",  True
 
         except requests.exceptions.RequestException as e:
             print(f"Error retrieving content from {website_url}: {e}")
             failed = {"source": website_url, "content": f"Failed to retrieve content due to an error: {e}"}
-            self.failed_sites.append(failed)
-            return self.failed_sites, False
+            failed_sites.append(website_url)
+            return failed, failed_sites, False
         
-    def use_tool(self, plan=None, query=None, visited_sites=[]):
+    def use_tool(self, plan=None, query=None, visited_sites=[], failed_sites=[]):
 
         search_queries = self.generate_searches(plan, query)
         search_results = self.fetch_search_results(search_queries)
         best_page = self.get_search_page(plan, query, search_results, visited_sites=visited_sites)
-        results_dict, response = self.scrape_website_content(best_page)
+        results_dict, failed_sites, response = self.scrape_website_content(best_page, failed_sites=failed_sites)
 
         attempts = 0
 
-        while not response and attempts < 3:
+        while not response and attempts < 5:
             print(f"Failed to retrieve content from {best_page}...Trying a different page")
-            print(f"Failed Sites: {self.failed_sites}")
-            best_page = self.get_search_page(plan, query, search_results, failed_sites=self.failed_sites)
-            results_dict, response = self.scrape_website_content(best_page)
+            print(f"Failed Sites: {failed_sites}")
+            best_page = self.get_search_page(plan, query, search_results, failed_sites=failed_sites)
+            results_dict, failed_sites, response = self.scrape_website_content(best_page)
+
             attempts += 1
 
 
