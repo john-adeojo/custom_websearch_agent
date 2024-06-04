@@ -4,8 +4,9 @@ import json
 import requests
 from datetime import datetime, timezone
 from termcolor import colored
-from prompts import planning_agent_prompt, integration_agent_prompt, check_response_prompt
+from prompts import planning_agent_prompt, integration_agent_prompt, check_response_prompt, check_response_json
 from search import WebSearcher
+import ast
 
 
 def load_config(file_path):
@@ -43,6 +44,7 @@ def read_feedback(json_filename="memory.json"):
             data = json.load(json_file)
             # Convert the JSON data to a pretty-printed string
             json_string = json.dumps(data, indent=4)
+            # json_string = str(data)
             return json_string
     else:
         return ""
@@ -106,29 +108,56 @@ class Agent:
             }
 
         if self.server == 'runpod' or self.server == 'openai':
-            payload = {
-                "model": self.model,
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": system_prompt
-                    },
-                    {
-                        "role": "user",
-                        "content": query
-                    }
-                ],
-                "stream": False,
-                "temperature": 0,
-                "stop": "<|eot_id|>"
-            }
+
+            prefix = self.model.split('/')[0]
+            exception_models = ['microsoft/Phi-3-medium-128k-instruct',
+                                'microsoft/Phi-3-mini-128k-instruct',
+                                'microsoft/Phi-3-medium-4k-instruct',
+                                'microsoft/Phi-3-mini-4k-instruct',
+                                ]
+
+            if prefix == 'mistralai' or self.model in exception_models:
+                payload = {
+                    "model": self.model,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": f"system_prompt:{system_prompt}\n\n query: {query}"
+                        }
+                    ],
+                    "temperature": 0,
+                    "stop": None
+                }
+            
+            else:
+                payload = {
+                    "model": self.model,
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": system_prompt
+                        },
+                        {
+                            "role": "user",
+                            "content": query
+                        }
+                    ],
+                    "stream": False,
+                    "temperature": 0,
+                    "stop": self.stop
+                }
 
             if self.server == 'openai':
                 del payload["stop"]
 
         try:
             response = requests.post(self.model_endpoint, headers=self.headers, data=json.dumps(payload))
-            response_dict = response.json()
+            print("Response_DEBUG:", response)
+           
+            try:
+                response_dict = response.json()
+            except json.JSONDecodeError as e:
+                response_dict = ast.literal_eval(response)
 
             if self.server == 'ollama':
                 response = response_dict['response']
@@ -165,29 +194,54 @@ class Agent:
             }
 
         if self.server == 'runpod' or self.server == 'openai':
-            payload = {
-                "model": self.model,
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": system_prompt
-                    },
-                    {
-                        "role": "user",
-                        "content": query
-                    }
-                ],
-                "stream": False,
-                "temperature": 0,
-                "stop": self.stop
-            }
+
+            prefix = self.model.split('/')[0]
+            exception_models = ['microsoft/Phi-3-medium-128k-instruct',
+                                'microsoft/Phi-3-mini-128k-instruct',
+                                'microsoft/Phi-3-medium-4k-instruct',
+                                'microsoft/Phi-3-mini-4k-instruct',
+                                ]
+
+            if prefix == 'mistralai' or self.model in exception_models:
+                payload = {
+                    "model": self.model,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": f"system_prompt:{system_prompt}\n\n query: {query}"
+                        }
+                    ],
+                    "temperature": 0,
+                    "stop": None
+                }
+            
+            else:
+                payload = {
+                    "model": self.model,
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": system_prompt
+                        },
+                        {
+                            "role": "user",
+                            "content": query
+                        }
+                    ],
+                    "stream": False,
+                    "temperature": 0,
+                    "stop": self.stop
+                }
 
             if self.server == 'openai':
                 del payload["stop"]
 
         try:
             response = requests.post(self.model_endpoint, headers=self.headers, data=json.dumps(payload))
-            response_dict = response.json()
+            try:
+                response_dict = response.json()
+            except json.JSONDecodeError as e:
+                response_dict = ast.literal_eval(response)
 
             if self.server == 'ollama':
                 response = response_dict['response']
@@ -217,36 +271,70 @@ class Agent:
             }
 
         if self.server == 'runpod' or self.server == 'openai':
-            payload = {
-                "model": self.model,
-                "response_format": {"type": "json_object"},
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": check_response_prompt
-                    },
-                    {
-                        "role": "user",
-                        "content": f"query: {query}\n\nresponse: {response}"
-                    }
-                ],
-                "temperature": 0,
-                "stop": self.stop
-            }
+
+            prefix = self.model.split('/')[0]
+            exception_models = ['microsoft/Phi-3-medium-128k-instruct',
+                                'microsoft/Phi-3-mini-128k-instruct',
+                                'microsoft/Phi-3-medium-4k-instruct',
+                                'microsoft/Phi-3-mini-4k-instruct',
+                                ]
+
+            if prefix == 'mistralai' or self.model in exception_models:
+                payload = {
+                    "model": self.model_qa,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": f"system:{check_response_prompt}\n\n query: {query}\n\nresponse: {response}"
+                        }
+                    ],
+                    "temperature": 0,
+                    "stop": None,
+                    "guided_json": check_response_json
+                }
+
+            else:
+                payload = {
+                    "model": self.model,
+                    "response_format": {"type": "json_object"},
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": check_response_prompt
+                        },
+                        {
+                            "role": "user",
+                            "content": f"query: {query} \n\nresponse: {response}"
+                        }
+                    ],
+                    "temperature": 0,
+                    "stop": self.stop,
+                    "guided_json": check_response_json
+                }
 
             if self.server == 'openai':
                 del payload["stop"]
+                del payload["guided_json"]
 
         try: 
-            response = requests.post(self.model_endpoint, headers=self.headers, data=json.dumps(payload))
-            response_dict = response.json()
+            response = requests.post(self.model_endpoint, headers=self.headers, data=json.dumps(payload))  
+            try:
+                response_dict = response.json()
+            except json.JSONDecodeError as e:
+                response_dict = ast.literal_eval(response)
+
+            print(f"check_response response_dict type: {type(response_dict)}")
 
             if self.server == 'ollama':
                 decision_dict = json.loads(response_dict['response'])
 
             if self.server == 'runpod' or self.server == 'openai':
                 response_content = response_dict['choices'][0]['message']['content']
-                decision_dict = json.loads(response_content)
+
+                try:
+                    decision_dict = json.loads(response_content)
+                except json.JSONDecodeError as e:
+                    decision_dict = ast.literal_eval(response_content)
             
             print("Response Quality Assessment:", decision_dict)
             return decision_dict
@@ -300,19 +388,19 @@ if __name__ == '__main__':
     # server = 'ollama'
 
     # Params for RunPod
-    model = "meta-llama/Meta-Llama-3-70B-Instruct"
-    model_tool = "meta-llama/Meta-Llama-3-70B-Instruct"
-    model_qa = "meta-llama/Meta-Llama-3-70B-Instruct"
-    runpod_endpoint = 'https://hu40e1a0ry7vgl-8000.proxy.runpod.net/'  # Add your RunPod endpoint here
+    model = "mistralai/Mixtral-8x7B-Instruct-v0.1"
+    model_tool = "mistralai/Mixtral-8x7B-Instruct-v0.1"
+    model_qa = "mistralai/Mixtral-8x7B-Instruct-v0.1"
+    runpod_endpoint = 'https://ngp4hf96wrdhz8-8000.proxy.runpod.net/'  # Add your RunPod endpoint here
     completions_endpoint = 'v1/chat/completions'
     model_endpoint = runpod_endpoint + completions_endpoint
-    stop = "<|eot_id|>"
+    stop = "</s>"
     server = 'runpod'
 
     # Params for OpenAI
-    # model = 'gpt-4o'
-    # model_tool = 'gpt-4o'
-    # model_qa = 'gpt-4o'
+    # model = 'gpt-3.5-turbo'
+    # model_tool = 'gpt-3.5-turbo'
+    # model_qa = 'gpt-3.5-turbo'
     # model_endpoint = 'https://api.openai.com/v1/chat/completions'
     # stop = None
     # server = 'openai'
@@ -323,11 +411,11 @@ if __name__ == '__main__':
                   tool=WebSearcher, 
                   planning_agent_prompt=planning_agent_prompt, 
                   integration_agent_prompt=integration_agent_prompt,
-                  verbose=True,
+                  verbose=False,
                   iterations=6,
                   model_endpoint=model_endpoint,
                   server=server
-                  )
+                  )              
     agent.execute()
 
 

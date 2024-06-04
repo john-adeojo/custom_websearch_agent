@@ -6,7 +6,8 @@ from termcolor import colored
 import os
 import chardet
 import string
-from prompts import generate_searches_prompt, get_search_page_prompt
+import ast
+from prompts import generate_searches_prompt, get_search_page_prompt, generate_searches_json, get_search_page_json
 
 
 def load_config(file_path):
@@ -58,31 +59,60 @@ class WebSearcher:
             }
         
         if self.server == 'runpod' or self.server == 'openai':
-            payload = {
-                "model": self.model,
-                "response_format": {"type": "json_object"},
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": generate_searches_prompt
-                    },
-                    {
-                        "role": "user",
-                        "content": f"Query: {query}\n\nPlan: {plan}"
-                    }
-                ],
-                "temperature": 0,
-                "stop": self.stop
 
-            }
+            prefix = self.model.split('/')[0]
+            exception_models = ['microsoft/Phi-3-medium-128k-instruct',
+                                'microsoft/Phi-3-mini-128k-instruct',
+                                'microsoft/Phi-3-medium-4k-instruct',
+                                'microsoft/Phi-3-mini-4k-instruct',
+                                ]
+
+            if prefix == 'mistralai' or self.model in exception_models:
+                payload = {
+                    "model": self.model,
+                    "response_format": {"type": "json_object"},
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": f"System: {generate_searches_prompt} \n\n\ Query: {query}\n\nPlan: {plan}"
+                        }
+                    ],
+                    "temperature": 0,
+                    "stop": None,
+                    "guided_json": generate_searches_json
+                }
+
+            else:
+                payload = {
+                    "model": self.model,
+                    "response_format": {"type": "json_object"},
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": generate_searches_prompt
+                        },
+                        {
+                            "role": "user",
+                            "content": f"Query: {query}\n\nPlan: {plan}"
+                        }
+                    ],
+                    "temperature": 0,
+                    "stop": self.stop,
+                    "guided_json": generate_searches_json
+
+                }
 
             if self.server == 'openai':
                del payload["stop"]
-
+               del payload["guided_json"]
 
         try: 
             response = requests.post(self.model_endpoint, headers=self.headers, data=json.dumps(payload))
-            response_dict = response.json()
+            print(f"Response_DEBUG: {response}")
+            try:
+                response_dict = response.json()
+            except json.JSONDecodeError:
+                response_dict = ast.literal_eval(response.content)
 
             if self.server == 'ollama':
                 response_json = json.loads(response_dict['response'])
@@ -91,10 +121,14 @@ class WebSearcher:
 
             if self.server == 'runpod' or self.server == 'openai':
                 response_content = response_dict['choices'][0]['message']['content']
-                response_json = json.loads(response_content)
+
+                try:
+                    response_json = json.loads(response_content)
+                except json.JSONDecodeError:
+                    response_json = ast.literal_eval(response_content)
+
                 search_query = response_json.get('response', '')
             
-            # print(f"Search dict DEBUG: {response_dict}")
             print(f"Search Query: {search_query}")
 
             return search_query
@@ -116,29 +150,58 @@ class WebSearcher:
             }
         
         if self.server == 'runpod' or self.server == 'openai':
-            payload = {
-                "model": self.model,
-                "response_format": {"type": "json_object"},
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": get_search_page_prompt
-                    },
-                    {
-                        "role": "user",
-                        "content": f"Query: {query}\n\nPlan: {plan}\n\nSearch Results: {search_results} \n\nFailed Sites: {failed_sites}\n\nVisited Sites: {visited_sites}"
-                    }
-                ],
-                "temperature": 0,
-                "stop": self.stop
-            }
+
+            prefix = self.model.split('/')[0]
+            exception_models = ['microsoft/Phi-3-medium-128k-instruct',
+                                'microsoft/Phi-3-mini-128k-instruct',
+                                'microsoft/Phi-3-medium-4k-instruct',
+                                'microsoft/Phi-3-mini-4k-instruct',
+                                ]
+
+            if prefix == 'mistralai' or self.model in exception_models:
+                payload = {
+                    "model": self.model,
+                    "response_format": {"type": "json_object"},
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": f"System: {get_search_page_prompt} \n\n\ Query: {query}\n\nPlan: {plan}\n\nSearch Results: {search_results} \n\nFailed Sites: {failed_sites}\n\nVisited Sites: {visited_sites}"
+                        }
+                    ],
+                    "temperature": 0,
+                    "stop": None,
+                    "guided_json": get_search_page_json
+                }
+
+            else:
+                payload = {
+                    "model": self.model,
+                    "response_format": {"type": "json_object"},
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": get_search_page_prompt
+                        },
+                        {
+                            "role": "user",
+                            "content": f"Query: {query}\n\nPlan: {plan}\n\nSearch Results: {search_results} \n\nFailed Sites: {failed_sites}\n\nVisited Sites: {visited_sites}"
+                        }
+                    ],
+                    "temperature": 0,
+                    "stop": self.stop,
+                    "guided_json": get_search_page_json
+                }
 
             if self.server == 'openai':
                 del payload["stop"]
+                del payload["guided_json"]
 
         try: 
             response = requests.post(self.model_endpoint, headers=self.headers, data=json.dumps(payload))
-            response_dict = response.json()
+            try:
+                response_dict = response.json()
+            except json.JSONDecodeError:
+                response_dict = ast.literal_eval(response.content)
 
             if self.server == 'ollama':
                 response_json = json.loads(response_dict['response'])
@@ -146,7 +209,12 @@ class WebSearcher:
 
             if self.server == 'runpod' or self.server == 'openai':
                 response_content = response_dict['choices'][0]['message']['content']
-                response_json = json.loads(response_content)
+
+                try:
+                    response_json = json.loads(response_content)
+                except json.JSONDecodeError:
+                    response_json = ast.literal_eval(response_content)
+
                 search_query = response_json.get('response', '')
            
             return search_query
@@ -237,7 +305,7 @@ class WebSearcher:
             # Cleaning up the text: removing excess whitespace
             clean_text = '\n'.join([line.strip() for line in text.splitlines() if line.strip()])
             split_text = clean_text.split()
-            first_5k_words = split_text[:5000]
+            first_5k_words = split_text[:4000]
             clean_text_5k = ' '.join(first_5k_words)
 
             if is_garbled(clean_text):
