@@ -87,6 +87,10 @@ if the response is not comprehensive and doesn't address the query in its entire
 4. The response must have Citations and links to sources.
 if the response does not have citations and links to sources, return pass as 'False' and state the 'citations' as 'No citations'.
 5. Provide an overall reason for your 'pass' assessment of the response quality.
+
+The previous responses may partially answer the original user query. The response may likely contain some information from previous responses.
+You should consider this when checking the response quality.
+
 The json object should have the following format:    
 {
     'pass': 'True' or 'False'

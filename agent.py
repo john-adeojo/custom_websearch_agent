@@ -257,7 +257,7 @@ class Agent:
             print("Error in response:", response_dict)
             return "Error generating plan {e}"
     
-    def check_response(self, response, query):
+    def check_response(self, response, query, previous_response, datetime=get_current_utc_datetime()):
 
         if self.server == 'ollama':
             payload = {
@@ -285,7 +285,7 @@ class Agent:
                     "messages": [
                         {
                             "role": "user",
-                            "content": f"system:{check_response_prompt}\n\n query: {query}\n\nresponse: {response}"
+                            "content": f"system:{check_response_prompt}\n\n query: {query}\n\nresponse: {response} \n\n previous response: {previous_response} \n\n current datetime: {datetime}"
                         }
                     ],
                     "temperature": 0,
@@ -304,7 +304,7 @@ class Agent:
                         },
                         {
                             "role": "user",
-                            "content": f"query: {query} \n\nresponse: {response}"
+                            "content": f"query: {query} \n\nresponse: {response} \n\nprevious response: {previous_response} \n\n current datetime: {datetime}"
                         }
                     ],
                     "temperature": 0,
@@ -364,7 +364,7 @@ class Agent:
 
             integration_agent_response = self.run_integration_agent(query=query, plan=plan, outputs=outputs, reason=reason, previous_response=feedback)
             save_feedback(integration_agent_response, json_filename="memory.json")
-            response_dict = self.check_response(integration_agent_response, query)
+            response_dict = self.check_response(response=integration_agent_response, query=query, previous_response=feedback)
             meets_requirements = response_dict.get('pass', '')
             print(f"Response meets requirements: {meets_requirements}")
             if meets_requirements == 'True':
@@ -388,22 +388,22 @@ if __name__ == '__main__':
     # server = 'ollama'
 
     # Params for RunPod
-    model = "mistralai/Mixtral-8x7B-Instruct-v0.1"
-    model_tool = "mistralai/Mixtral-8x7B-Instruct-v0.1"
-    model_qa = "mistralai/Mixtral-8x7B-Instruct-v0.1"
-    runpod_endpoint = 'https://ngp4hf96wrdhz8-8000.proxy.runpod.net/'  # Add your RunPod endpoint here
-    completions_endpoint = 'v1/chat/completions'
-    model_endpoint = runpod_endpoint + completions_endpoint
-    stop = "</s>"
-    server = 'runpod'
+    # model = "mistralai/Codestral-22B-v0.1"
+    # model_tool = "mistralai/Codestral-22B-v0.1"
+    # model_qa = "mistralai/Codestral-22B-v0.1"
+    # runpod_endpoint = 'https://dtalj4mdnqx7vh-8000.proxy.runpod.net/'  # Add your RunPod endpoint here
+    # completions_endpoint = 'v1/chat/completions'
+    # model_endpoint = runpod_endpoint + completions_endpoint
+    # stop = "</s>"
+    # server = 'runpod'
 
     # Params for OpenAI
-    # model = 'gpt-3.5-turbo'
-    # model_tool = 'gpt-3.5-turbo'
-    # model_qa = 'gpt-3.5-turbo'
-    # model_endpoint = 'https://api.openai.com/v1/chat/completions'
-    # stop = None
-    # server = 'openai'
+    model = 'gpt-4o'
+    model_tool = 'gpt-4o'
+    model_qa = 'gpt-4o'
+    model_endpoint = 'https://api.openai.com/v1/chat/completions'
+    stop = None
+    server = 'openai'
 
     agent = Agent(model=model,
                   model_tool=model_tool,
