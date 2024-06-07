@@ -1,64 +1,50 @@
 
 # Custom Agent
 
-A custom websearch agent useable with Ollama, OpenAI and vLLM.
+A custom websearch agent useable with Ollama, SearXNG, and vLLM.
 
-### Agent Schema:
+### Agent schema:
 ![Agent Schema](schema/Agent%20Schema.png)
 
 
 ### Prerequisites
 
-#### Environment Setup
+#### Environment setup
 1. **Install Anaconda:**  
-   Download Anaconda from [https://www.anaconda.com/](https://www.anaconda.com/).
+   Download and install [https://www.anaconda.com/](Anaconda).
 
-2. **Create a Virtual Environment:**
+2. **Create and activate your virtual environment:**
    ```bash
-   conda create -n agent_env python=3.10 pip
-   ```
-   
-3. **Activate the Virtual Environment:**
-   ```bash
+   conda create -n agent_env python pip
    conda activate agent_env
    ```
-#### Setup Ollama Server
-1. **Download Ollama:**
-   Download [https://ollama.com/download](Ollama)
 
-2. **Download an Ollama Model:**
+#### Clone the repository and install the requirements
    ```bash
-   curl http://localhost:11434/api/pull -d "{\"name\": \"llama3\"}"
-   ```
-Ollama[https://github.com/ollama/ollama/blob/main/docs/api.md#list-local-models](API documentionation)
-
-### Clone and Navigate to the Repository
-1. **Clone the Repo:**
-   ```bash
-   git clone https://github.com/john-adeojo/custom_agent_tutorial.git
-   ```
-
-2. **Navigate to the Repo:**
-   ```bash
-   cd /path/to/your-repo/custom_agent_tutorial
-   ```
-
-3. **Install Requirements:**
-   ```bash
+   git clone https://github.com/manjaroblack/custom_websearch_agent.git
+   cd custom_websearch_agent
    pip install -r requirements.txt
    ```
 
-### Configure API Keys
-1. **Open the `config.yaml`:**
+#### Setup Ollama Server
+1. **Download and install Ollama:**
+   [https://ollama.com/download](Ollama)
+
+2. **Create a custom Model:**
    ```bash
-   nano config.yaml
+   ollama create llama3_agentic -f ./MODELFILE
    ```
 
-2. **Enter API Keys:**
-   - **Serper API Key:** Get it from [https://serper.dev/](https://serper.dev/)
-   - **OpenAI API Key:** Get it from [https://openai.com/](https://openai.com/)
+#### Setup and configure a SearXNG server
+1. **Setup a SearXNG Server:**
+   Repo: [https://github.com/searxng/searxng](SearXNG)
 
-### Run Your Query
+2. **Configure SearXNG**
+   Copy the files in the SearXNG folder to your settings location
+      1. /etc/searxng
+      2. /usr/local/searxng
+
+### Run your query
 ```bash
 python agent.py run
 ```
