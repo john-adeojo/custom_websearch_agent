@@ -4,10 +4,13 @@ import json
 import yaml
 from termcolor import colored
 import os
-import chardet
 import string
 import ast
+import chardet
 from prompts import generate_searches_prompt, get_search_page_prompt, generate_searches_json, get_search_page_json
+from langchain_community.utilities import SearxSearchWrapper
+
+searxng_search = SearxSearchWrapper(searx_host=os.environ['SEARXNG_URL'])
 
 
 def load_config(file_path):
@@ -55,7 +58,7 @@ class WebSearcher:
                 "format": "json",
                 "system": generate_searches_prompt,
                 "stream": False,
-                "temperature": 0,
+                "temperature": 0.3,
             }
         
         if self.server == 'runpod' or self.server == 'openai':
@@ -74,10 +77,10 @@ class WebSearcher:
                     "messages": [
                         {
                             "role": "user",
-                            "content": f"System: {generate_searches_prompt} \n\n\ Query: {query}\n\nPlan: {plan}"
+                            "content": f"System: {generate_searches_prompt} \n\nQuery: {query}\n\nPlan: {plan}"
                         }
                     ],
-                    "temperature": 0,
+                    "temperature": 0.3,
                     "stop": None,
                     "guided_json": generate_searches_json
                 }
@@ -96,15 +99,15 @@ class WebSearcher:
                             "content": f"Query: {query}\n\nPlan: {plan}"
                         }
                     ],
-                    "temperature": 0,
+                    "temperature": 0.3,
                     "stop": self.stop,
                     "guided_json": generate_searches_json
 
                 }
 
             if self.server == 'openai':
-               del payload["stop"]
-               del payload["guided_json"]
+                del payload["stop"]
+                del payload["guided_json"]
 
         try: 
             response = requests.post(self.model_endpoint, headers=self.headers, data=json.dumps(payload))
@@ -146,7 +149,7 @@ class WebSearcher:
                 "format": "json",
                 "system": get_search_page_prompt,
                 "stream": False,
-                "temperature": 0,
+                "temperature": 0.3,
             }
         
         if self.server == 'runpod' or self.server == 'openai':
@@ -165,10 +168,10 @@ class WebSearcher:
                     "messages": [
                         {
                             "role": "user",
-                            "content": f"System: {get_search_page_prompt} \n\n\ Query: {query}\n\nPlan: {plan}\n\nSearch Results: {search_results} \n\nFailed Sites: {failed_sites}\n\nVisited Sites: {visited_sites}"
+                            "content": f"System: {get_search_page_prompt} \n\nQuery: {query}\n\nPlan: {plan}\n\nSearch Results: {search_results} \n\nFailed Sites: {failed_sites}\n\nVisited Sites: {visited_sites}"
                         }
                     ],
-                    "temperature": 0,
+                    "temperature": 0.3,
                     "stop": None,
                     "guided_json": get_search_page_json
                 }
@@ -187,7 +190,7 @@ class WebSearcher:
                             "content": f"Query: {query}\n\nPlan: {plan}\n\nSearch Results: {search_results} \n\nFailed Sites: {failed_sites}\n\nVisited Sites: {visited_sites}"
                         }
                     ],
-                    "temperature": 0,
+                    "temperature": 0.3,
                     "stop": self.stop,
                     "guided_json": get_search_page_json
                 }
@@ -216,7 +219,7 @@ class WebSearcher:
                     response_json = ast.literal_eval(response_content)
 
                 search_query = response_json.get('response', '')
-           
+            
             return search_query
         
         except Exception as e:
@@ -236,24 +239,28 @@ class WebSearcher:
     
     def fetch_search_results(self, search_queries):
 
-        search_url = "https://google.serper.dev/search"
+        # search_url = "https://google.serper.dev/search"
+        search_url = os.environ['SEARCH_URL']
         headers = {
             'Content-Type': 'application/json',
-            'X-API-KEY': os.environ['SERPER_DEV_API_KEY']  # Ensure this environment variable is set with your API key
+            # 'X-API-KEY': os.environ['SERPER_DEV_API_KEY']  # Ensure this environment variable is set with your API key
         }
         payload = json.dumps({"q": search_queries})
         
         # Attempt to make the HTTP POST request
+
         try:
-            response = requests.post(search_url, headers=headers, data=payload)
-            response.raise_for_status()  # Raise an HTTPError for bad responses (4XX, 5XX)
-            results = response.json()
+            # response = requests.post(search_url, headers=headers, data=payload)
+            # response.raise_for_status()  # Raise an HTTPError for bad responses (4XX, 5XX)
+            # results = response.json()
+            results = searxng_search.results(search_queries, num_results=5)
+            return self.format_results(results)
             
             # Check if 'organic' results are in the response
-            if 'organic' in results:
-                return self.format_results(results['organic'])
-            else:
-                return "No organic results found."
+            # if 'organic' in results:
+                # return self.format_results(results['organic'])
+            # else:
+                # return "No organic results found."
 
         except requests.exceptions.HTTPError as http_err:
             return f"HTTP error occurred: {http_err}"

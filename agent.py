@@ -8,7 +8,6 @@ from prompts import planning_agent_prompt, integration_agent_prompt, check_respo
 from search import WebSearcher
 import ast
 
-
 def load_config(file_path):
     with open(file_path, 'r') as file:
         config = yaml.safe_load(file)
@@ -69,7 +68,6 @@ class Agent:
         self.model_endpoint = model_endpoint
 
         if server == 'openai':
-            load_config('config.yaml')
             self.api_key = os.getenv('OPENAI_API_KEY')
             self.headers = {
             'Content-Type': 'application/json',
@@ -104,7 +102,7 @@ class Agent:
                 "prompt": query,
                 "system": system_prompt,
                 "stream": False,
-                "temperature": 0,
+                "temperature": 0.3,
             }
 
         if self.server == 'runpod' or self.server == 'openai':
@@ -125,7 +123,7 @@ class Agent:
                             "content": f"system_prompt:{system_prompt}\n\n query: {query}"
                         }
                     ],
-                    "temperature": 0,
+                    "temperature": 0.3,
                     "stop": None
                 }
             
@@ -143,7 +141,7 @@ class Agent:
                         }
                     ],
                     "stream": False,
-                    "temperature": 0,
+                    "temperature": 0.3,
                     "stop": self.stop
                 }
 
@@ -153,7 +151,7 @@ class Agent:
         try:
             response = requests.post(self.model_endpoint, headers=self.headers, data=json.dumps(payload))
             print("Response_DEBUG:", response)
-           
+
             try:
                 response_dict = response.json()
             except json.JSONDecodeError as e:
@@ -190,7 +188,7 @@ class Agent:
                 "prompt": query,
                 "system": system_prompt,
                 "stream": False,
-                "temperature": 0,
+                "temperature": 0.3,
             }
 
         if self.server == 'runpod' or self.server == 'openai':
@@ -211,7 +209,7 @@ class Agent:
                             "content": f"system_prompt:{system_prompt}\n\n query: {query}"
                         }
                     ],
-                    "temperature": 0,
+                    "temperature": 0.3,
                     "stop": None
                 }
             
@@ -229,7 +227,7 @@ class Agent:
                         }
                     ],
                     "stream": False,
-                    "temperature": 0,
+                    "temperature": 0.3,
                     "stop": self.stop
                 }
 
@@ -266,7 +264,7 @@ class Agent:
                 "format": "json",
                 "system": check_response_prompt,
                 "stream": False,
-                "temperature": 0,
+                "temperature": 0.3,
                 "stop": self.stop
             }
 
@@ -288,7 +286,7 @@ class Agent:
                             "content": f"system:{check_response_prompt}\n\n query: {query}\n\nresponse: {response} \n\n previous response: {previous_response} \n\n current datetime: {datetime}"
                         }
                     ],
-                    "temperature": 0,
+                    "temperature": 0.3,
                     "stop": None,
                     "guided_json": check_response_json
                 }
@@ -307,7 +305,7 @@ class Agent:
                             "content": f"query: {query} \n\nresponse: {response} \n\nprevious response: {previous_response} \n\n current datetime: {datetime}"
                         }
                     ],
-                    "temperature": 0,
+                    "temperature": 0.3,
                     "stop": self.stop,
                     "guided_json": check_response_json
                 }
@@ -342,7 +340,7 @@ class Agent:
         except Exception as e:
             print("Error in assessing response quality:", response_dict)
             return "Error in assessing response quality"
-         
+
     def execute(self):
         query = input("Enter your query: ")
         meets_requirements = False
@@ -353,7 +351,7 @@ class Agent:
         iterations = 0
         visited_sites = []
         failed_sites = []
-    
+
         while not meets_requirements and iterations < self.iterations:
             iterations += 1
             feedback = read_feedback(json_filename="memory.json")
@@ -379,13 +377,15 @@ class Agent:
         
 if __name__ == '__main__':
 
+    load_config('config.yaml')
+
     # Params for Ollama
-    # model = "llama3:instruct"
-    # model_tool = "llama3:instruct"
-    # model_qa = "llama3:instruct"
-    # model_endpoint = 'http://localhost:11434/api/generate'
-    # stop = None
-    # server = 'ollama'
+    model = os.environ['OPENAI_MODEL_NAME']
+    model_tool = os.environ['OPENAI_MODEL_NAME']
+    model_qa = os.environ['OPENAI_MODEL_NAME']
+    model_endpoint = os.environ['OPENAI_API_BASE']
+    stop = None
+    server = 'ollama'
 
     # Params for RunPod
     # model = "mistralai/Codestral-22B-v0.1"
@@ -398,26 +398,22 @@ if __name__ == '__main__':
     # server = 'runpod'
 
     # Params for OpenAI
-    model = 'gpt-4o'
-    model_tool = 'gpt-4o'
-    model_qa = 'gpt-4o'
-    model_endpoint = 'https://api.openai.com/v1/chat/completions'
-    stop = None
-    server = 'openai'
+    # model = 'gpt-4o'
+    # model_tool = 'gpt-4o'
+    # model_qa = 'gpt-4o'
+    # model_endpoint = 'https://api.openai.com/v1/chat/completions'
+    # stop = None
+    # server = 'openai'
 
     agent = Agent(model=model,
-                  model_tool=model_tool,
-                  model_qa=model_qa,
-                  tool=WebSearcher, 
-                  planning_agent_prompt=planning_agent_prompt, 
-                  integration_agent_prompt=integration_agent_prompt,
-                  verbose=False,
-                  iterations=6,
-                  model_endpoint=model_endpoint,
-                  server=server
-                  )              
+                model_tool=model_tool,
+                model_qa=model_qa,
+                tool=WebSearcher, 
+                planning_agent_prompt=planning_agent_prompt, 
+                integration_agent_prompt=integration_agent_prompt,
+                verbose=False,
+                iterations=6,
+                model_endpoint=model_endpoint,
+                server=server
+                )
     agent.execute()
-
-
-    
-

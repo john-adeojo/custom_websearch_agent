@@ -1,5 +1,6 @@
-termcolor==2.4.0
-PyYAML==6.0.1
-requests==2.31.0
-beautifulsoup4==4.12.3
-chardet==5.2.0
+termcolor
+PyYAML
+requests
+beautifulsoup4
+chardet
+langchain_community

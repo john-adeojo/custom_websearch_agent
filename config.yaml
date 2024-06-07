@@ -1,5 +1,4 @@
-OPENAI_API_BASE=http://localhost:11434/v1
-OPENAI_MODEL_NAME=llama3_agentic
-OPENAI_API_KEY=NA
-
-SEARXNG_URL=http://192.168.100.52:8080/
+OPENAI_API_BASE: "http://localhost:11434/api/generate"
+OPENAI_MODEL_NAME: "llama3_agentic"
+OPENAI_API_KEY: "NA"
+SERPER_DEV_API_KEY: "NA"

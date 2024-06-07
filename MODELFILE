@@ -1,8 +1,8 @@
 FROM llama3:latest
 
-# Set parementers
+# Set parameters
 
-PARAMETER temperature 0.8
+PARAMETER temperature 0.3
 PARAMETER stop Result
 
 # Sets a custom system message to specify the behavior of 

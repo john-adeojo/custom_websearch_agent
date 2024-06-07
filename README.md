@@ -15,7 +15,7 @@ A custom websearch agent useable with Ollama, SearXNG, and vLLM.
 
 2. **Create and activate your virtual environment:**
    ```bash
-   conda create -n agent_env python=3.10 pip
+   conda create -n agent_env python pip
    conda activate agent_env
    ```
 
